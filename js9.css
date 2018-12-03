@@ -151,12 +151,13 @@ canvas.JS9Layer {
 
 /* message display */
 div.JS9Message {
-    width: 100%;
+/*    width: 100%;
     padding-top: 10px;
     padding-left: 10px;
     font-family: Helvetica, sans-serif;
     font-size: 10pt;
-    font-weight: 300;
+    font-weight: 300;*/
+    display: none;
 }
 
 /* div enclosing progress bar in message area */

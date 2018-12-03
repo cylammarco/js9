@@ -130,7 +130,7 @@ JS9.globalOpts = {
     table: {xdim: 2048, ydim: 2048, bin: 1},// image section size to extract from table
     image: {xdim: 2048, ydim: 2048, bin: 1},// image section size (0 for unlimited)
     binMode: "s",             // "s" (sum) or "a" (average) pixels when binning
-    clearImageMemory: "never",  // rm vfile: always|never|auto|noExt|noCube|size>x Mb
+    clearImageMemory: "auto",  // rm vfile: always|never|auto|noExt|noCube|size>x Mb
     helperProtocol: location.protocol, // http: or https:
     maxMemory: 750000000,	// max heap memory to allocate for a fits image
     corsURL: "params/loadcors.html",       // location of param html file
@@ -234,6 +234,7 @@ JS9.imageOpts = {
     contrast: 1.0,			// default color contrast
     bias: 0.5,				// default color bias
     invert: false,			// default colormap invert
+    bounce: false,
     exp: 1000,				// default exp value for scaling
     colormap: "grey",			// default color map
     scale: "linear",			// default scale algorithm
@@ -2111,7 +2112,7 @@ JS9.Image.prototype.calcContrastBias = function(i){
     var bias = this.params.bias;
     var contrast = this.params.contrast;
     // check for (close to) default
-    if( ((bias - 0.5) < 0.0001) && ((contrast - 1.0) < 0.0001) ){
+    if( (Math.abs(bias - 0.5) < 0.0001) && (Math.abs(contrast - 1.0) < 0.0001) ){
 	return i;
     }
     // map i to range of 0 to 1.0
@@ -2126,7 +2127,11 @@ JS9.Image.prototype.calcContrastBias = function(i){
     if( r < 0 ){
 	result = 0;
     } else if( r >= cs ){
-	result = cs - 1;
+        if ( this.params.bounce ) {
+            result = Math.max(0, 2. * cs - r);
+        } else {
+        	result = cs - 1;
+        }
     } else {
 	result = r;
     }
@@ -2213,22 +2218,22 @@ JS9.Image.prototype.mkScaledCells = function(){
 	}
 	break;
     case "log":
-	exp = this.params.exp;
-	// scaled cells
-	for(ii=0; ii<ss; ii++){
-	    aa = Math.log(((exp*ii)/ss)+1) / Math.log(exp);
-	    ll = Math.floor(aa * cs);
-	    if( ll >= cs ){
-		ll = cs - 1;
-	    }
-	    this.psColors[ii] = this.colorCells[ll];
-	}
-	// inverse
-	for(ii=0; ii<tt; ii++){
-	    aa = (Math.pow(exp,ii/tt)-1) / exp;
-	    this.psInverse[ii] =  aa * dd + low;
-	}
-	break;
+    exp = this.params.exp;
+    // scaled cells
+    for(ii=0; ii<ss; ii++){
+        aa = Math.log(((exp*ii)/ss)+1) / Math.log(exp);
+        ll = Math.floor(aa * cs);
+        if( ll >= cs ){
+        ll = cs - 1;
+        }
+        this.psColors[ii] = this.colorCells[ll];
+    }
+    // inverse
+    for(ii=0; ii<tt; ii++){
+        aa = (Math.pow(exp,ii/tt)-1) / exp;
+        this.psInverse[ii] =  aa * dd + low;
+    }
+    break;
     case "power":
 	exp = this.params.exp;
 	// scaled cells
@@ -5388,11 +5393,15 @@ JS9.Image.prototype.setColormap = function(arg, arg2, arg3){
 	case "rgb":
 	    JS9.globalOpts.rgb.active = !JS9.globalOpts.rgb.active;
 	    break;
-	case "invert":
-	    this.params.invert = !this.params.invert;
-	    break;
+    case "invert":
+        this.params.invert = !this.params.invert;
+        break;
+    case "bounce":
+        this.params.bounce = !this.params.bounce;
+        break;
 	case "reset":
-	    this.params.invert = JS9.imageOpts.invert;
+        this.params.invert = JS9.imageOpts.invert;
+        this.params.bounce = JS9.imageOpts.bounce;
 	    this.params.contrast = JS9.imageOpts.contrast;
 	    this.params.bias = JS9.imageOpts.bias;
 	    break;
@@ -5571,9 +5580,13 @@ JS9.Image.prototype.setParam = function(param, value){
 	    value.scalemax = value.scalemax || obj.scalemax;
 	    this.setScale(value.scale, value.scalemin, value.scalemax);
 	}
-	if( value.invert ){
-	    this.params.invert = value.invert;
-	    this.displayImage("colors");
+    if( value.invert ){
+        this.params.invert = value.invert;
+        this.displayImage("colors");
+    }
+    if( value.bounce ){
+        this.params.bounce = value.bounce;
+        this.displayImage("colors");
 	}
 	if( value.zoom ){
 	    this.setZoom(value.zoom);
@@ -5618,8 +5631,11 @@ JS9.Image.prototype.setParam = function(param, value){
 	this.setColormap(value);
 	break;
     case "invert":
-	this.displayImage("colors");
-	break;
+    this.displayImage("colors");
+    break;
+    case "bounce":
+    this.displayImage("colors");
+    break;
     case "contrast":
 	obj = this.getColormap();
 	this.setColormap(obj.colormap, value, obj.bias);
