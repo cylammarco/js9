@@ -32,7 +32,7 @@
   ],
   "homepage": "https://js9.si.edu",
   "dependencies": {
-    "socket.io": "^2.1.1",
+    "socket.io": "^4.8.0",
     "uuid": "^3.2.1"
   }
 }
